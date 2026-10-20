@@ -328,7 +328,7 @@ export function Button({ props }: { props: Props }) {
 }
 
 function ButtonView({ props }: { props: Props }) {
-  const { run } = useUiRuntime();
+  const { run, reviewBeforeSend } = useUiRuntime();
   // Inside a nested tile, buttons sit on a tinted surface beside siblings that
   // carry the same action: a filled button per tile is too loud.
   const nested = useContext(CardDepthContext) > 1;
@@ -341,9 +341,9 @@ function ButtonView({ props }: { props: Props }) {
       : list(props.action).filter(isAction);
   const filled = props.variant === "primary" && !nested;
   const destructive = props.variant === "destructive";
-  // What this button puts in the message box, shown on hover, and flagged on
+  // The message this button drafts or sends, shown on hover, and flagged on
   // the button when it isn't just the label, so a label can't hide what it says.
-  const drafted = draftPreview(label, actions);
+  const drafted = draftPreview(label, actions, reviewBeforeSend);
   // An unknown name draws nothing; links and copies get their glyph by default.
   const icon =
     props.icon !== undefined

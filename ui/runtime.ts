@@ -45,6 +45,11 @@ export interface UiRuntime {
    */
   answer: string | null;
   /**
+   * The reviewBeforeSend setting: a Send only drafts its message in the
+   * user's message box (true) or posts it at once (false).
+   */
+  reviewBeforeSend: boolean;
+  /**
    * True once the thread has a user message after the reply holding this
    * block (typed, or sent from any UI): its choices are no longer the question.
    */

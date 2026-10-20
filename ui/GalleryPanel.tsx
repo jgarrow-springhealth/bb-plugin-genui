@@ -232,8 +232,9 @@ function ExampleBody({ example }: { example: GalleryExample }) {
   const loadImage = useImageLoader("gallery");
   const readText = useTextLoader("gallery");
   const loadAudio = useAudioLoader("gallery");
-  const send = useCallback(async (message: string) => {
-    toast(`Would send: ${message}`);
+  const send = useCallback(async (message: string, review: boolean) => {
+    toast(`${review ? "Would add to your message box" : "Would send"}: ${message}`);
+    return !review;
   }, []);
 
   if (source.status === "loading") return <Notice>Loading…</Notice>;

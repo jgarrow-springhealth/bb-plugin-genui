@@ -3,7 +3,8 @@
 // each caller supplies how Send and file links reach its thread.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate, useSettings } from "@get-bb/plugin-sdk/app";
+import { reviewsBeforeSend } from "../core/send-settings";
 import { collectLoads, dataKey, evaluate, initialState, type LoadedData, type Program } from "../core";
 import type { Action, Diagnostic, Value } from "../core/types";
 import {
@@ -70,7 +71,8 @@ export function LiveUi({
   stateKey: string;
   /** Files the spec reads with Load and Snippet, keyed by `dataKey`. */
   data?: ReadonlyMap<string, LoadedData>;
-  send(text: string): Promise<void>;
+  /** Resolves true when the message was posted, false when only drafted for review. */
+  send(text: string, review: boolean): Promise<boolean>;
   openFile: UiRuntime["openFile"];
   loadImage: UiRuntime["loadImage"];
   readText: UiRuntime["readText"];
@@ -109,8 +111,8 @@ export function LiveUi({
 
   // What the user sent from this block; choice controls collapse to it.
   const answerKey = `${stateKey}:answer`;
-  // Only answers recorded before sends became drafts; nothing new is recorded.
-  const [answer] = useState<string | null>(() => readStoredAnswer(answerKey));
+  const [answer, setAnswer] = useState<string | null>(() => readStoredAnswer(answerKey));
+  const reviewBeforeSend = reviewsBeforeSend(useSettings().values);
 
   const navigate = useBbNavigate();
   const setValue = useCallback(
@@ -127,10 +129,15 @@ export function LiveUi({
           setValue(action.name, action.value);
           return;
         case "send":
-          // Only drafts the message (see sendThroughComposer), so this UI isn't
-          // marked answered: the user may edit or discard the draft. Its choices
-          // close once the user actually sends something (superseded).
-          await send(action.text);
+          // A drafted message isn't an answer yet: the user may edit or discard
+          // it. Its choices close once the user sends something (superseded).
+          if (!(await send(action.text, reviewBeforeSend))) return;
+          setAnswer(action.text);
+          try {
+            localStorage.setItem(answerKey, action.text);
+          } catch {
+            // Storage unavailable: the choice collapses until the page reloads.
+          }
           return;
         case "openUrl": {
           let url: URL;
@@ -151,7 +158,7 @@ export function LiveUi({
           return;
       }
     },
-    [navigate, setValue, send],
+    [navigate, setValue, send, reviewBeforeSend, answerKey],
   );
 
   const runtime = useMemo<UiRuntime>(
@@ -162,6 +169,7 @@ export function LiveUi({
       readText,
       loadAudio,
       answer,
+      reviewBeforeSend,
       superseded,
       threadId,
       blockKey,
@@ -173,7 +181,7 @@ export function LiveUi({
         }
       },
     }),
-    [setValue, openFile, loadImage, readText, loadAudio, answer, superseded, threadId, blockKey, runAction],
+    [setValue, openFile, loadImage, readText, loadAudio, answer, reviewBeforeSend, superseded, threadId, blockKey, runAction],
   );
 
   const { roots, diagnostics } = useMemo(() => evaluate(program, state, data), [program, state, data]);

@@ -48,7 +48,8 @@ import { examplesReport } from "./examples";
 import { AGENT_INSTRUCTIONS, AGENT_INSTRUCTIONS_WEB_OFF, CODE_WORK_INSTRUCTIONS, UI_REFERENCE, UI_REFERENCE_MORE } from "./instructions";
 import { foundImageSchema } from "./web/commons";
 import { locatedSchema } from "./web/geocode";
-import { createWebLookups, MAX_TILE_ZOOM } from "./web/lookups";
+import { createWebLookups, MAX_TILE_ZOOM, WEB_SETTINGS } from "./web/lookups";
+import { SEND_SETTINGS } from "./core/send-settings";
 import { createProjectSource, projectReader } from "./project/source";
 import { createEnvironmentsSource } from "./project/environments";
 import type { EnvironmentDetailResult } from "./core/environments";
@@ -195,7 +196,9 @@ export const rpcContract = defineRpcContract({
 });
 
 export default async function plugin(bb: BbPluginApi) {
-  const web = createWebLookups(bb);
+  // Every setting in one place; the frontend reads reviewBeforeSend with useSettings.
+  const settings = bb.settings.define({ ...WEB_SETTINGS, ...SEND_SETTINGS });
+  const web = createWebLookups(bb, settings);
   /** Image searches for markdown renderings: the photo found, or null (none, or lookups off). */
   const findImage = async (query: string) => {
     const found = await web.search(query);

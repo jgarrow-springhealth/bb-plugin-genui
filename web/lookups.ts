@@ -96,8 +96,13 @@ export interface WebLookups {
   isOn(): boolean;
 }
 
-export function createWebLookups(bb: BbPluginApi): WebLookups {
-  const settings = bb.settings.define(WEB_SETTINGS);
+/** The part of the plugin's settings web lookups read; server.ts defines every setting at once. */
+export interface WebSettingsHandle {
+  get(): Promise<{ readonly webLookups: boolean }>;
+  onChange(listener: (next: { readonly webLookups: boolean }) => void): void;
+}
+
+export function createWebLookups(bb: BbPluginApi, settings: WebSettingsHandle): WebLookups {
   let migrated: Database.Database | null = null;
   const cache = new WebCache(() => {
     const db = bb.storage.database();

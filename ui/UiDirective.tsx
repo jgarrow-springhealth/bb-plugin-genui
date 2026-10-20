@@ -71,7 +71,7 @@ function StoredUi({
   }, [rpc, id]);
   const source = load.status === "ready" ? load.source : "";
   const compiled = useMemo(() => compile(source), [source]);
-  const send = useCallback((text: string) => sendThroughComposer(composer, text), [composer]);
+  const send = useCallback((text: string, review: boolean) => sendThroughComposer(composer, text, review), [composer]);
   const data = useLoadedData({ threadId }, compiled.program);
   const loadImage = useImageLoader({ threadId });
   const readText = useTextLoader({ threadId });

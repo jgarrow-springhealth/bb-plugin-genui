@@ -15,7 +15,8 @@ export type FenceLanguage = "ui" | "app";
 const THREAD_STORAGE_PREFIX = "$BB_THREAD_STORAGE/";
 
 export interface ThreadActions {
-  send(threadId: string, text: string): Promise<void>;
+  /** Resolves true when the message was posted, false when only drafted (see sendThroughComposer). */
+  send(threadId: string, text: string, review: boolean): Promise<boolean>;
   openFile(threadId: string, path: string, line?: number): Promise<boolean>;
 }
 
@@ -29,18 +30,17 @@ export function useThreadActions(): ThreadActions {
   const sdk = useSdk();
   const navigate = useBbNavigate();
   const send = useCallback(
-    async (threadId: string, text: string) => {
+    async (threadId: string, text: string, review: boolean) => {
       const composer = composers.current.find(
         (candidate) => candidate.scope.kind === "thread" && candidate.scope.threadId === threadId,
       );
-      // Never posts straight to the thread: the text only goes to a message box
-      // the user can review. Without one on screen, the click does nothing.
-      if (composer === undefined) {
-        throw new Error("Open this thread's message box to use this button");
-      }
-      await sendThroughComposer(composer, text);
+      if (composer !== undefined) return sendThroughComposer(composer, text, review);
+      // No message box on screen: reviewing needs one, so nothing is posted.
+      if (review) throw new Error("Open this thread's message box to use this button");
+      await sdk.threads.send({ threadId, mode: "queue-if-active", input: [{ type: "text", text, mentions: [] }] });
+      return true;
     },
-    [],
+    [sdk],
   );
   const openFile = useCallback(
     async (threadId: string, path: string, line?: number) => {
@@ -122,7 +122,7 @@ function UiFence({
   const loadImage = useImageLoader({ threadId });
   const readText = useTextLoader({ threadId });
   const loadAudio = useAudioLoader({ threadId });
-  const send = useCallback((text: string) => actions.send(threadId, text), [actions, threadId]);
+  const send = useCallback((text: string, review: boolean) => actions.send(threadId, text, review), [actions, threadId]);
   const openFile = useCallback((path: string, line?: number) => actions.openFile(threadId, path, line), [actions, threadId]);
   const superseded = useSuperseded(threadId, messageId);
 
