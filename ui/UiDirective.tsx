@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useComposer, useRpc, type PluginMessageDirectiveProps } from "@get-bb/plugin-sdk/app";
 import { compile } from "../core";
 import type { rpcContract } from "../server";
-import { LiveUi, RenderFailure, sendThroughComposer } from "./LiveUi";
+import { LiveUi, RenderFailure } from "./LiveUi";
+import { sendThroughComposer } from "./composerSend";
 import { useAudioLoader, useImageLoader, useLoadedData, useTextLoader } from "./useLoadedData";
 import { useSuperseded } from "./useSuperseded";
 

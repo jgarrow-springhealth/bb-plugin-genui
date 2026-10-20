@@ -5,7 +5,8 @@ import { memo, useCallback, useMemo, useRef } from "react";
 import { useBbNavigate, useComposers, useSdk, type PluginComposerApi } from "@get-bb/plugin-sdk/app";
 import { compileStreaming } from "../core";
 import { AppBlock } from "./AppBlock";
-import { LiveUi, RenderFailure, sendThroughComposer } from "./LiveUi";
+import { LiveUi, RenderFailure } from "./LiveUi";
+import { sendThroughComposer } from "./composerSend";
 import { useAudioLoader, useImageLoader, useLoadedData, useTextLoader } from "./useLoadedData";
 import { useSuperseded } from "./useSuperseded";
 
@@ -32,13 +33,14 @@ export function useThreadActions(): ThreadActions {
       const composer = composers.current.find(
         (candidate) => candidate.scope.kind === "thread" && candidate.scope.threadId === threadId,
       );
-      if (composer !== undefined) {
-        await sendThroughComposer(composer, text);
-        return;
+      // Never posts straight to the thread: the text only goes to a message box
+      // the user can review. Without one on screen, the click does nothing.
+      if (composer === undefined) {
+        throw new Error("Open this thread's message box to use this button");
       }
-      await sdk.threads.send({ threadId, mode: "queue-if-active", input: [{ type: "text", text, mentions: [] }] });
+      await sendThroughComposer(composer, text);
     },
-    [sdk],
+    [],
   );
   const openFile = useCallback(
     async (threadId: string, path: string, line?: number) => {

@@ -3,7 +3,7 @@
 // each caller supplies how Send and file links reach its thread.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { useBbNavigate, type PluginComposerApi } from "@get-bb/plugin-sdk/app";
+import { useBbNavigate } from "@get-bb/plugin-sdk/app";
 import { collectLoads, dataKey, evaluate, initialState, type LoadedData, type Program } from "../core";
 import type { Action, Diagnostic, Value } from "../core/types";
 import {
@@ -25,17 +25,6 @@ const MOUNTED = new Set<string>();
 /** Long enough to cover the remount's first commit, short enough for the user's next action to animate. */
 const REMOUNT_QUIET_MS = 300;
 
-/** Posts `text` as the user's next message, or appends it to a draft the user is writing. */
-export async function sendThroughComposer(composer: PluginComposerApi, text: string): Promise<void> {
-  if (composer.isEmpty) {
-    composer.insert(text);
-    await composer.submit({ experimental_data: { source: "genui" } });
-    return;
-  }
-  composer.insert(text, { at: "end", block: true });
-  composer.focus();
-  toast("Added to your draft");
-}
 
 /** Values the user changed earlier for this UI, from localStorage. */
 function readStoredValues(storageKey: string): Record<string, Value> {
@@ -120,7 +109,8 @@ export function LiveUi({
 
   // What the user sent from this block; choice controls collapse to it.
   const answerKey = `${stateKey}:answer`;
-  const [answer, setAnswer] = useState<string | null>(() => readStoredAnswer(answerKey));
+  // Only answers recorded before sends became drafts; nothing new is recorded.
+  const [answer] = useState<string | null>(() => readStoredAnswer(answerKey));
 
   const navigate = useBbNavigate();
   const setValue = useCallback(
@@ -137,13 +127,10 @@ export function LiveUi({
           setValue(action.name, action.value);
           return;
         case "send":
+          // Only drafts the message (see sendThroughComposer), so this UI isn't
+          // marked answered: the user may edit or discard the draft. Its choices
+          // close once the user actually sends something (superseded).
           await send(action.text);
-          setAnswer(action.text);
-          try {
-            localStorage.setItem(answerKey, action.text);
-          } catch {
-            // Storage unavailable: the choice collapses until the page reloads.
-          }
           return;
         case "openUrl": {
           let url: URL;
@@ -164,7 +151,7 @@ export function LiveUi({
           return;
       }
     },
-    [navigate, setValue, send, answerKey],
+    [navigate, setValue, send],
   );
 
   const runtime = useMemo<UiRuntime>(
