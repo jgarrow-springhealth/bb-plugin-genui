@@ -37,7 +37,7 @@ BB shows a card with a plan switch, a seat slider and a live total. Moving the s
 
 ## What you get
 
-- **86 components in 10 groups**, from cards, tables and charts to maps, kanban boards, Gantt roadmaps, quizzes and sandboxed mini-apps. Browse all of them, with 170+ examples, on the **Gen-UI Gallery** page in BB's sidebar.
+- **88 components in 11 groups**, from cards, tables and charts to maps, kanban boards, Gantt roadmaps, quizzes, real 3D scenes, GPU shaders and sandboxed mini-apps. Browse all of them, with 180+ examples, on the **Gen-UI Gallery** page in BB's sidebar.
 - **Interactive without extra model calls.** Sliders, toggles, editable tables and filters re-evaluate the UI in the page. Buttons and forms send your answer back to the agent as one message.
 - **Files instead of retyped numbers.** The agent saves what a tool printed and the component reads it: test reports (vitest, jest, JUnit), logs, ESLint / `tsc` / SARIF findings, coverage (lcov, istanbul, coverage.py, Go), `npm outdated` and `npm audit`, CI runs, HAR files, hyperfine benchmarks. Code is shown from the file, at the lines asked for.
 - **Your BB project, read live.** `Changes()`, `Commits()`, `PullRequest()`, `Threads()` and `Environments()` show the thread's diff, its branch, its pull request, its workers and your worktrees, straight from BB.
@@ -85,6 +85,10 @@ BB shows a card with a plan switch, a seat slider and a live total. Moving the s
     <td><b>Evidence</b></td>
     <td>Acceptance · Compare · Transcript · Provenance</td>
   </tr>
+  <tr>
+    <td><b>3D</b></td>
+    <td>Scene (solids, glass, surfaces, glTF models, HDR lighting; animated by <code>t =&gt; [...]</code>) · Shader (Shadertoy-style GLSL, multi-pass)</td>
+  </tr>
 </table>
 
 For anything the components can't express, such as a small game or a simulation, the agent writes an `app` block: a self-contained HTML page that runs in a sandboxed frame with no network access.
@@ -108,11 +112,14 @@ bb genui ask "Plan a two-day trip to Lisbon"
 - **Tokens.** Sessions whose replies you read get about 16 KB of instructions (roughly 4,000 tokens) that teach the components. Worker threads that another agent spawns get none. A UI costs no extra model call: it is part of the reply.
 - **Web lookups**, on by default and controlled by the plugin's *Web lookups* setting. They run on the BB server, never in the page: photo search on Wikimedia Commons (ImageSearch), place names to coordinates with Photon (Map), map tiles from OpenStreetMap, and https images a UI shows, fetched through a proxy that refuses private addresses. Each service sees your IP address and what is looked up (the search words, the place names, the map area), never the rest of the thread. With the setting off, nothing is fetched and the components say so.
 - **Files.** Components read only the thread's workspace, its thread storage and `/tmp`.
+- **Size and GPU.** The 3D components bundle three.js, so the plugin's page code is about 1.6 MB (0.9 MB without them). A Scene or Shader holds a WebGL context only while it is near the screen, at most six at once; the others show their last frame as an image.
 - **Elsewhere.** `bb genui render` prints a thread's last reply with every UI turned into plain markdown, for the terminal or for tools that read BB's SDK.
 
 ## How it fits into BB
 
-BB doesn't yet let a plugin render code blocks in a reply, so the plugin finds the `ui` and `app` blocks in BB's page and draws the component in place of each one. A BB update that changes how replies are laid out can turn the UIs back into code blocks until the plugin catches up; the reply itself never loses anything. [get-bb/bb#5268](https://github.com/get-bb/bb/issues/5268) proposes a plugin slot for this, and the plugin switches to it on its own if BB adds it.
+On BB versions with `experimental_codeFenceRenderer` (merged in [get-bb/bb#5387](https://github.com/get-bb/bb/pull/5387)), BB hands `ui` and `app` fences directly to the plugin. UI renders while streaming and shows final diagnostics when the fence closes or the reply ends. Apps start only when their fence closes; an interrupted, unclosed app remains readable source. BB preserves the renderer instance throughout streaming and falls back to its code block if a language has conflicting plugins or a renderer crashes.
+
+BB 0.45 and other versions without the slot still use the DOM overlay. That fallback considers a block complete after its text stops changing for 1.5 seconds: it cannot distinguish a closed fence from a pause or interruption. Changes to BB's page layout can turn those UIs back into code until the plugin catches up. State keys stay the same across the two rendering paths.
 
 The full picture, from the instructions agents receive to how blocks stay steady while BB recycles rows as you scroll, is in [docs/architecture.md](docs/architecture.md).
 

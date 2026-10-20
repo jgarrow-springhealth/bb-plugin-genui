@@ -11,15 +11,24 @@
 //   same calculator example stopped being followed.
 // BB refuses a tool whose instructions pass 4096 characters and truncates the
 // configure section there; instructions.test.ts holds all three.
-import { ACTIONS, callSignature, COMPONENTS, componentSignature, type ComponentGroup, type ComponentName } from "./core/catalog";
+import { ACTIONS, callSignature, COMPONENTS, componentSignature, type ComponentGroup, type ComponentName, type ComponentSpec } from "./core/catalog";
+
+/**
+ * Groups too big for the reference: their required params only, with the
+ * full API in the ui_examples notes (examples.ts NOTES), which the line says
+ * to read first.
+ */
+const BRIEF_GROUPS: Partial<Record<ComponentGroup, string>> = { "3D": "3D (ui_examples first: full API)" };
 
 /** One line per group: `Group: Sig: summary · Sig · …`. */
 function componentLines(groups: readonly ComponentGroup[]): string {
   const lines = new Map<ComponentGroup, string[]>(groups.map((group) => [group, []]));
   for (const name of Object.keys(COMPONENTS) as ComponentName[]) {
-    lines.get(COMPONENTS[name].group)?.push(componentSignature(name));
+    const spec: ComponentSpec = COMPONENTS[name];
+    const brief = `${name}(${spec.params.filter((param) => !param.optional).map((param) => param.name).join(", ")}, …): ${spec.summary}`;
+    lines.get(COMPONENTS[name].group)?.push(Object.hasOwn(BRIEF_GROUPS, COMPONENTS[name].group) ? brief : componentSignature(name));
   }
-  return [...lines].map(([group, entries]) => `${group}: ${entries.join(" · ")}`).join("\n");
+  return [...lines].map(([group, entries]) => `${BRIEF_GROUPS[group] ?? group}: ${entries.join(" · ")}`).join("\n");
 }
 
 const actionList = Object.entries(ACTIONS)
@@ -28,22 +37,22 @@ const actionList = Object.entries(ACTIONS)
 
 /** Groups in the first reference section; the rest are in UI_REFERENCE_MORE. */
 export const REFERENCE_GROUPS: readonly ComponentGroup[] = ["Layout", "Content", "Data", "Project"];
-export const REFERENCE_MORE_GROUPS: readonly ComponentGroup[] = ["Inputs", "Widgets", "Media", "Dev", "Manage"];
+export const REFERENCE_MORE_GROUPS: readonly ComponentGroup[] = ["Inputs", "Widgets", "Media", "Dev", "Manage", "3D"];
 
 export const UI_REFERENCE = `# Inline UI reference
 The \`\`\`ui language used by the Inline UI section below.
-Syntax: one statement per line. \`$x = 8\` is state inputs bind to; \`name = expr\` names a value and \`f = (a, b) => expr\` a function; each bare expression renders. JS expressions incl. ** ?: ?? \`\${x}\` [lists] {objects} x.y map/filter/find/join/length, plus round(x, d), fmt(x, d), sum, min, max, abs, entries, Load(path). Named args go last: Slider($n, 0, 10, label: "N").
+Syntax: one statement per line. \`$x = 8\` is state inputs bind to; \`name = expr\` names a value and \`f = (a, b) => expr\` a function; each bare expression renders. JS expressions incl. ** ?: ?? \`\${x}\` [lists] {objects} x.y map/filter/find/join/length, plus round(x, d), fmt(x, d), sum, min, max, abs, entries, Load(path), sin cos tan asin acos atan atan2(y, x) sqrt floor ceil clamp lerp range(a, b, step?) random(i) PI TAU. Named args go last: Slider($n, 0, 10, label: "N").
 Components (? optional; tone: neutral|good|warn|bad|info if meaningful; more in the next section):
 ${componentLines(REFERENCE_GROUPS)}
-Actions: ${actionList}; a list runs in order; Send puts the text in the user's message box; their settings decide whether it is sent at once or left for them to review.
+Actions: ${actionList}; a list runs in order; Send posts as the user.
 Data: Load("path") reads JSON/CSV/TSV/JSONL from the workspace, "$BB_THREAD_STORAGE/x.json" or /tmp into lists and objects, and other files (a log, tsc output) as text; never retype values a file or command output holds. Snippet and Image read files the same way.
 Games, simulations, custom visuals: write \`\`\`app, a self-contained HTML page (inline CSS/JS, CSS vars --foreground --muted-foreground --border --primary --card; sandboxed, no network).
-The check_ui tool (optional, before you reply) checks a block that uses Snippet or Load (wrong line ranges, unreadable files) and shows its text version.`;
+The check_ui tool (optional, before you reply) checks a block that uses Snippet, Load or inputs: unreadable files, wrong line ranges, errors a slider end, toggle or option causes once used; it shows the text version.`;
 
 export const UI_REFERENCE_MORE = `# Inline UI reference, continued
 ${componentLines(REFERENCE_MORE_GROUPS)}
 Icon names: Check X Plus Minus Edit Copy Trash2 Download ExternalLink Play Pause RotateCcw Search Settings GitBranch GitMerge GitPullRequest Bug Code Terminal FileText Folder Clock Calendar Mail Sent Lock Star Pin Link Eye AlertTriangle Info Globe Smartphone Laptop Cloud Layers Puzzle.
-The ui_examples tool (optional, before you write the block) returns working examples of the components you name.`;
+The ui_examples tool (optional) returns working examples of the components you name.`;
 
 const MAP_EXAMPLE = `\`\`\`ui
 Card("Day 1", [Map([{name: "Belém Tower, Lisbon", note: "Opens 9:30"}, {name: "Pena Palace, Sintra"}], route: true)])

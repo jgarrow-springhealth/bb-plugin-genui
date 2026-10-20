@@ -19,7 +19,7 @@ import {
 import { RenderNodes } from "./render";
 import { useReservedHeight } from "./reservedHeight";
 import { UiRuntimeContext, type UiRuntime } from "./runtime";
-import { EntranceContext } from "./components/motion";
+import { EntranceContext, newStreamCadence, trackStream } from "./components/motion";
 
 /** Blocks mounted in this page, so a remount (BB's timeline while scrolling) doesn't replay entrances. */
 const MOUNTED = new Set<string>();
@@ -60,10 +60,12 @@ export function LiveUi({
   loadImage,
   readText,
   loadAudio,
+  loadAsset,
   superseded = false,
   threadId,
   blockKey,
   gallery,
+  streaming = false,
 }: {
   program: Program;
   compileDiagnostics: readonly Diagnostic[];
@@ -77,12 +79,15 @@ export function LiveUi({
   loadImage: UiRuntime["loadImage"];
   readText: UiRuntime["readText"];
   loadAudio: UiRuntime["loadAudio"];
+  loadAsset: UiRuntime["loadAsset"];
   /** A later user message exists in the thread (see UiRuntime.superseded). */
   superseded?: boolean;
   threadId: UiRuntime["threadId"];
   blockKey: UiRuntime["blockKey"];
   /** Set on the gallery page: which example this is (see Frame). */
   gallery?: GalleryExample;
+  /** The reply is still writing this block: what mounts fades at the stream's pace (motion.ts). */
+  streaming?: boolean;
 }) {
   // State is the program's initial values overlaid with what the user changed.
   // Keeping the two apart lets a still-streaming program add state variables
@@ -168,6 +173,7 @@ export function LiveUi({
       loadImage,
       readText,
       loadAudio,
+      loadAsset,
       answer,
       reviewBeforeSend,
       superseded,
@@ -181,7 +187,7 @@ export function LiveUi({
         }
       },
     }),
-    [setValue, openFile, loadImage, readText, loadAudio, answer, reviewBeforeSend, superseded, threadId, blockKey, runAction],
+    [setValue, openFile, loadImage, readText, loadAudio, loadAsset, answer, reviewBeforeSend, superseded, threadId, blockKey, runAction],
   );
 
   const { roots, diagnostics } = useMemo(() => evaluate(program, state, data), [program, state, data]);
@@ -208,8 +214,14 @@ export function LiveUi({
   const [entrance] = useState(() => {
     const remount = MOUNTED.has(stateKey);
     MOUNTED.add(stateKey);
-    return { quietUntil: remount ? performance.now() + REMOUNT_QUIET_MS : 0 };
+    return { quietUntil: remount ? performance.now() + REMOUNT_QUIET_MS : 0, stream: newStreamCadence() };
   });
+  // During render, before the children that mount with this source run their entrances.
+  const tracked = useRef<{ source: string; streaming: boolean } | null>(null);
+  if (tracked.current?.source !== source || tracked.current.streaming !== streaming) {
+    tracked.current = { source, streaming };
+    trackStream(entrance.stream, streaming, performance.now());
+  }
 
   return (
     <UiRuntimeContext value={runtime}>

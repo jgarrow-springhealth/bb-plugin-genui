@@ -14,7 +14,7 @@ import type { GalleryExample } from "./FrameFooter";
 import { GalleryHeader, groupAnchor, type GallerySelection } from "./GalleryHeader";
 import { componentsIn, GALLERY_GROUPS } from "./gallery-search";
 import { LiveUi, RenderFailure } from "./LiveUi";
-import { useAudioLoader, useImageLoader, useLoadedData, useTextLoader } from "./useLoadedData";
+import { useAssetLoader, useAudioLoader, useImageLoader, useLoadedData, useTextLoader } from "./useLoadedData";
 
 const PANEL = "gallery";
 
@@ -232,6 +232,7 @@ function ExampleBody({ example }: { example: GalleryExample }) {
   const loadImage = useImageLoader("gallery");
   const readText = useTextLoader("gallery");
   const loadAudio = useAudioLoader("gallery");
+  const loadAsset = useAssetLoader("gallery");
   const send = useCallback(async (message: string, review: boolean) => {
     toast(`${review ? "Would add to your message box" : "Would send"}: ${message}`);
     return !review;
@@ -252,6 +253,7 @@ function ExampleBody({ example }: { example: GalleryExample }) {
       loadImage={loadImage}
       readText={readText}
       loadAudio={loadAudio}
+      loadAsset={loadAsset}
       threadId={galleryThread()}
       blockKey={null}
       gallery={example}

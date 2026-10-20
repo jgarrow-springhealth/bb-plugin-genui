@@ -9,17 +9,14 @@
 // bundled), so this file must be loaded by BB, not imported directly.
 import { definePluginApp } from "@get-bb/plugin-sdk/app";
 import { FenceOverlay } from "./ui/FenceOverlay";
-import { FENCE_LANGUAGES, SlotFence, type CodeFenceRendererRegistration } from "./ui/SlotFence";
+import { FENCE_LANGUAGES, SlotFence } from "./ui/SlotFence";
 import { GalleryPanel } from "./ui/GalleryPanel";
 import { UiDirective } from "./ui/UiDirective";
 
 export default definePluginApp((app) => {
-  // The slot is not in the published SDK yet, so look for it at runtime.
-  const slots: typeof app.slots & {
-    experimental_codeFenceRenderer?: (registration: CodeFenceRendererRegistration) => void;
-  } = app.slots;
-  if (typeof slots.experimental_codeFenceRenderer === "function") {
-    slots.experimental_codeFenceRenderer({ id: "genui", languages: FENCE_LANGUAGES, component: SlotFence });
+  // Declared by the SDK, but BB before the slot (0.45) has no such method at runtime.
+  if (typeof app.slots.experimental_codeFenceRenderer === "function") {
+    app.slots.experimental_codeFenceRenderer({ id: "genui", languages: FENCE_LANGUAGES, component: SlotFence });
   } else {
     app.slots.experimental_appOverlay({ id: "ui-fences", component: FenceOverlay });
   }

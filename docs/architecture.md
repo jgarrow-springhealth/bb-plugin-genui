@@ -39,18 +39,33 @@ The internals behind [the README](../README.md): how agents learn the language, 
      components can't express.
    - `check_ui` is optional: it compiles a block with its files loaded and
      returns the errors (wrong Snippet ranges, unreadable files) and the
-     text version of what the user will see.
+     text version of what the user will see. It also tries the block's
+     inputs the way a reader would (`core/probe.ts`, at most 24 per
+     block, each from the initial state): sliders and steppers at both
+     ends, toggles flipped, every option picked, lists emptied and
+     filled, text cleared, Set buttons pressed. An error one of them adds
+     is reported as `After setting $n to 0: …`, so a block that only
+     breaks on the first drag is fixed before the reader sees it.
+     `gallery.test.ts` runs the same probes over every example.
    - `ui_examples` is optional: it returns the gallery examples of the
      components named (`examples.ts`), with their data files.
 3. Rendering depends on the BB version:
-   - With BB's proposed `experimental_codeFenceRenderer` slot (feature
-     request get-bb/bb#5268, prototype on ComicBit/bb branch
-     `feat/code-fence-renderer`), BB hands each fence to `ui/SlotFence.tsx`
-     together with its closing-fence state and its index.
+   - With BB's merged `experimental_codeFenceRenderer` slot (#5387), BB
+     hands each fence to `ui/SlotFence.tsx` with `code`, `language`,
+     `status: "streaming" | "closed" | "unclosed"`, a per-language index
+     and its message identity. Closed means the delimiter arrived; unclosed
+     means the reply ended without it. UI finalizes diagnostics for either
+     terminal status. Unclosed apps render `Original`, never partial HTML.
+     BB keeps the renderer instance through streaming, closure and reply
+     completion. Missing, disabled, conflicting or crashing renderers fall
+     back to BB's code block; a crash is retried when code or status changes.
+     The props are the SDK's `ExperimentalCodeFenceRendererProps` (0.6.54);
+     `app.tsx` checks the method exists at runtime, since BB 0.45 lacks it.
    - On a BB without that slot, an app overlay (`ui/FenceOverlay.tsx`) finds
      the code blocks in BB's DOM, hides them and portals the same `Fence`
-     there. It treats a block as complete once the block's text stops
-     changing. Each mount carries `data-bb-plugin`, so BB's scoped plugin
+     there. It treats a block as complete after 1.5 seconds without a text
+     change, so a paused or interrupted app can execute on this legacy path.
+     Each mount carries `data-bb-plugin`, so BB's scoped plugin
      CSS applies.
    - BB's timeline unmounts rows that scroll out of view and remounts them
      on the way back, so a block must open at its final height or the
@@ -66,12 +81,31 @@ The internals behind [the README](../README.md): how agents learn the language, 
      arrives; a component waiting for a `Load` is a quiet placeholder, never
      an error line. Height glides (`useSmoothHeight`) only follow the
      user's own input; anything else snaps. `scripts/scroll-jitter.mjs`
-     measures it.
+     measures it. Both paths mark mounts with `data-genui-fence` and
+     `data-genui-renderer="slot" | "overlay"`; the script reports mount
+     counts and hidden code blocks as well as drift. Only the overlay adds
+     `data-genui-hidden`. Persistent keys remain
+     `bb.genui.state:${message.id}#${language}#${index}` on either path.
 4. ```ui specs render while the reply streams: `compileStreaming` renders
-   the longest prefix that compiles. ```app blocks run only once complete,
-   in an `<iframe sandbox="allow-scripts">`. The iframe has an opaque
-   origin, a no-network CSP and BB's theme variables, and it sizes itself to
-   its content.
+   the longest prefix that compiles, cutting after each finished string
+   too, so `Metric("Total", "$"` shows while `+ price` is still coming. A
+   string still being written on the last line is closed where it stops
+   when it is prose (Text, Callout, Card titles, table cells, step details),
+   so a paragraph grows instead of appearing whole at its closing quote, and
+   an open `**` or code span in it is closed too, so the run is styled from
+   its first word instead of flipping when the closer arrives (after Zeron's
+   `mend`). Paths, place names, image queries, icons, tones and labels a
+   tap would send wait for their closing quote. What mounts while a block
+   streams only fades, never moves, for three times the average gap between
+   appends (120–400 ms, after Zeron's `veil`); the rise and stagger are for
+   blocks that open complete and for what the user's input reveals
+   (`ui/components/motion.ts`). On the slot path, ```app blocks run
+   only after the closing delimiter; the overlay uses the settlement
+   heuristic above. Apps run in an `<iframe sandbox="allow-scripts">`
+   with an opaque origin, a no-network CSP and BB's theme variables, and
+   size themselves to their content. BB's streaming-tail move preserves
+   iframe documents where `Element.moveBefore` exists; elsewhere an iframe
+   can reload once during settlement even though React state survives.
 5. Interactions re-evaluate the spec locally, with no model call. State
    persists per block in `localStorage`. `Send(text)`, and a Button with no
    action, post a user message through the thread's composer.
@@ -81,7 +115,9 @@ The internals behind [the README](../README.md): how agents learn the language, 
    user message after the reply (typed, or sent from anywhere), they go away.
    `ui/useSuperseded.ts` reads that from BB's conversation outline and
    re-reads it only on thread events that can add a user message, so it
-   holds for blocks BB has scrolled out of its timeline. Copy and link
+   holds for blocks BB has scrolled out of its timeline. A user row whose
+   sequence is below one already listed doesn't count: BB's outline can put
+   an old rejected steer at its end (`ui/supersession.ts`). Copy and link
    buttons stay. A `Form` sends every field as one `label: value` message
    (`core/form.ts`) and then turns read-only.
 7. A state declared with the wrong but losslessly convertible type
@@ -90,7 +126,10 @@ The internals behind [the README](../README.md): how agents learn the language, 
    language also takes what models write anyway: named functions
    (`paid = p => sum($rows.filter(r => r.by == p).map(r => r.amount))`,
    called as `paid("Ana")`; no recursion, keys per call site) and object
-   keys written as bare words (`{Good for: "views"}`).
+   keys written as bare words (`{Good for: "views"}`). A style argument
+   (`color:`, `background:`, `size:`…) is an error that says why:
+   components draw in BB's theme, and `tone:` is the status colour where a
+   component has one.
 8. Data by reference: `Load("path")` reads a JSON (also `.sarif`, `.har`),
    CSV, TSV, JSONL or text file (a log, tsc output, lcov), and
    `Snippet(path, from, to)` reads lines of a file, so the model doesn't
@@ -100,7 +139,11 @@ The internals behind [the README](../README.md): how agents learn the language, 
    svg or avif files (5 MB cap) through the `load_image` RPC. Paths are
    workspace-relative, `$BB_THREAD_STORAGE/…`, or absolute. Components that
    show code at a location their data names (a stack frame, a finding, an
-   uncovered line) read the file through `runtime.readText`. The backend
+   uncovered line) read the file through `runtime.readText`. A Scene's
+   models, environments and textures (glb, gltf, hdr, png, jpg, webp; 10 MB
+   cap) come through the `load_asset` RPC as bytes (`runtime.loadAsset`),
+   decoded in the browser without fetching (glTF buffers and images
+   included), since BB's CSP may refuse data: and blob: fetches. The backend
    (`data-source.ts`) only reads inside the thread's workspace, its thread
    storage and `/tmp` on the environment's host, where agents and their tools
    save screenshots and reports. BB refuses a symlinked root and macOS's
@@ -200,6 +243,30 @@ the instructions list it.
     each stage with its facts and receipt; facts that differ from what was
     asked for, or between stages, are flagged, and the chain says where its
     receipts stop.
+- 3D, matching Zeron's `ui.scene` and `ui.shader`: Scene draws objects
+  (`{shape, ...}` records: solids with materials, surfaces, meshes, lines,
+  points, labels, glTF models, an HDR environment, sprites) and Shader runs
+  Shadertoy-style GLSL passes. A Scene's objects can be a function
+  `t => [...]`, and a surface's `f` one of `(x, z)`: the language passes an
+  arrow (or a named function by name) as a `FunctionValue` that closes over
+  the evaluation and runs with its own step budget per call, so the renderer
+  calls it every frame without re-evaluating the spec. `core/scene.ts`
+  (`readScene`) checks every object strictly (an unknown field is an error
+  naming the object) and fills Zeron's defaults, for the renderer and for
+  evaluation, which reads the scene at t = 0; check_ui reads it again at
+  t = 1.5, parses each shader pass with `core/glsl-check.ts` (errors by
+  pass and line; server only, so the GLSL parser stays out of the page) and
+  reports model, environment and texture files it can't read. The
+  instructions carry one brief line; `ui_examples` returns the full API.
+  Scene renders with three.js (`ui/components/sceneWorld.ts`): a key light
+  with soft shadows on an invisible catcher, bloom from `glow`, physical
+  glass with dispersion, PMREM environments, objects reused by index across
+  frames. Shader is raw WebGL2 (`shaderGl.ts`) with float ping-pong buffers,
+  Zeron's `light`/`alpha`/`opaque` blends, edge fade and a dither against
+  8-bit banding. Both draw on a transparent canvas in theme colours
+  (`gpu.ts` resolves tokens) and hold a WebGL context only near the screen,
+  at most six at once, the rest showing their last frame as an image at the
+  same height. On touch, vertical swipes keep scrolling the thread.
 
 What the user changes inside a component without a `$state` (weights,
 unchecked steps, filters) is kept per block with `ui/usePersistedState.ts`,
@@ -264,10 +331,13 @@ pilot stored.
 - `core/`: the spec language. It has a lexer, a parser, a validator against
   `core/catalog.ts`, a tree-walking interpreter with no `eval` (with step,
   node and list limits), and `compileStreaming`. It is pure TypeScript.
+  `scene.ts` and `shader-args.ts` read the 3D components' arguments,
+  `glsl.ts` builds shader sources and maps errors to the agent's lines, and
+  `glsl-check.ts` checks shader GLSL without a GPU (server only).
 - `ui/`:
   - `Fence.tsx`: the shared renderer.
-  - `SlotFence.tsx` and `FenceOverlay.tsx`: the two ways the renderer gets
-    mounted.
+  - `SlotFence.tsx`: the native renderer slot, including terminal status policy.
+  - `FenceOverlay.tsx`: the older-BB DOM fallback and settlement heuristic.
   - `AppBlock.tsx`: the sandboxed apps.
   - `components/`: one renderer per catalog component. Styling uses host
     token classes only.

@@ -7,7 +7,7 @@ import { compile } from "../core";
 import type { rpcContract } from "../server";
 import { LiveUi, RenderFailure } from "./LiveUi";
 import { sendThroughComposer } from "./composerSend";
-import { useAudioLoader, useImageLoader, useLoadedData, useTextLoader } from "./useLoadedData";
+import { useAssetLoader, useAudioLoader, useImageLoader, useLoadedData, useTextLoader } from "./useLoadedData";
 import { useSuperseded } from "./useSuperseded";
 
 const UI_ID = /^[a-z0-9]{10}$/;
@@ -76,6 +76,7 @@ function StoredUi({
   const loadImage = useImageLoader({ threadId });
   const readText = useTextLoader({ threadId });
   const loadAudio = useAudioLoader({ threadId });
+  const loadAsset = useAssetLoader({ threadId });
   const superseded = useSuperseded(threadId, messageId);
 
   switch (load.status) {
@@ -108,6 +109,7 @@ function StoredUi({
           loadImage={loadImage}
           readText={readText}
           loadAudio={loadAudio}
+          loadAsset={loadAsset}
           superseded={superseded}
           threadId={threadId}
           blockKey={`bb.genui.state:${id}`}

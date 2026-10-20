@@ -20,9 +20,11 @@ import { z } from "zod";
 import { LIMITS } from "./core/catalog";
 import {
   listGallery,
+  loadGalleryAsset,
   loadGalleryAudio,
   loadGalleryFile,
   loadGalleryImage,
+  loadThreadAsset,
   loadThreadAudio,
   loadThreadFile,
   loadThreadImage,
@@ -103,6 +105,11 @@ export const rpcContract = defineRpcContract({
     input: z.object({ threadId: z.string().min(1), path: filePath }),
     output: loadedImage,
   },
+  // A file a Scene loads (glb, gltf, hdr, png, jpg, webp; 10 MB cap), as a data URL the client decodes to bytes.
+  load_asset: {
+    input: z.object({ threadId: z.string().min(1), path: filePath }),
+    output: loadedImage,
+  },
   render_markdown: {
     input: z.object({ threadId: z.string().min(1), text: z.string() }),
     output: z.object({ markdown: z.string() }),
@@ -125,6 +132,10 @@ export const rpcContract = defineRpcContract({
     output: loadedImage,
   },
   gallery_audio: {
+    input: z.object({ path: filePath }),
+    output: loadedImage,
+  },
+  gallery_asset: {
     input: z.object({ path: filePath }),
     output: loadedImage,
   },
@@ -210,7 +221,7 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.registerTool({
     name: "check_ui",
     description:
-      "Checks a ```ui block before you put it in your reply: compile errors, files Load or Snippet can't read, wrong line ranges, and the text version of what the user will see. Optional; use it for blocks with Load or Snippet.",
+      "Checks a ```ui block before you put it in your reply: compile errors, files Load or Snippet can't read, wrong line ranges, errors its inputs cause once used (each slider end, toggle, option, emptied list), and the text version of what the user will see. Optional; use it for blocks with Load, Snippet or inputs.",
     instructions: UI_REFERENCE,
     parameters: z.object({
       spec: z.string().min(1).max(LIMITS.sourceChars).describe("The block's content, without the ``` fence lines"),
@@ -274,6 +285,7 @@ export default async function plugin(bb: BbPluginApi) {
     load_data: ({ threadId, path, raw }) => loadThreadFile(bb, threadId, path, { raw }),
     load_image: ({ threadId, path }) => loadThreadImage(bb, threadId, path),
     load_audio: ({ threadId, path }) => loadThreadAudio(bb, threadId, path),
+    load_asset: ({ threadId, path }) => loadThreadAsset(bb, threadId, path),
     async render_markdown({ threadId, text }) {
       const markdown = await renderReplyMarkdown(
         text,
@@ -288,6 +300,7 @@ export default async function plugin(bb: BbPluginApi) {
     gallery_data: ({ path, raw }) => loadGalleryFile(path, { raw }),
     gallery_image: ({ path }) => loadGalleryImage(path),
     gallery_audio: ({ path }) => loadGalleryAudio(path),
+    gallery_asset: ({ path }) => loadGalleryAsset(path),
     sketch_font: async () => ({ dataUrl: await sketchFontDataUrl() }),
     web_image: ({ url }) => web.image(url),
     web_search: ({ query }) => web.search(query),
