@@ -98,7 +98,7 @@ describe("actionPreview", () => {
 
   it("lists every action, in order", () => {
     const preview = actionPreview("Both", [{ kind: "action", type: "copy", text: "x" }, send("Done")], true);
-    expect(preview?.text.split("\n")).toHaveLength(2);
+    expect(preview?.text).toBe("Copies \u201cx\u201d\nAdds to your message box (you press Enter to send):\n\u201cDone\u201d");
     expect(preview?.differs).toBe(true);
   });
 });

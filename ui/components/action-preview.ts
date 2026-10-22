@@ -20,7 +20,7 @@ export function actionPreview(label: string, actions: readonly Action[], review:
   for (const action of actions) {
     switch (action.type) {
       case "send":
-        lines.push(`${review ? "Adds to your message box (you press Enter to send):" : "Sends this as your message right away:"} ${quote(action.text)}`);
+        lines.push(`${review ? "Adds to your message box (you press Enter to send):" : "Sends this as your message right away:"}\n${quote(action.text)}`);
         if (action.text.trim() !== label.trim()) differs = true;
         break;
       case "openUrl":
