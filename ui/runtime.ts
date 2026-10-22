@@ -127,7 +127,7 @@ export interface Answers {
    * (no composer for the thread) straight to the thread as a message.
    */
   readonly target: "composer" | "gallery" | "direct";
-  /** Stages `answer` as the answer to `question`, or withdraws it (null). With target "direct", sends it; resolves once sent (failures are shown, never thrown). */
+  /** Stages `answer` as the answer to `question`, or withdraws it (null). With target "direct" (no composer on screen), does nothing but say so (fork: nothing is sent unreviewed). */
   stage(question: string, answer: { readonly text: string; readonly selection: Selection } | null): Promise<void>;
 }
 

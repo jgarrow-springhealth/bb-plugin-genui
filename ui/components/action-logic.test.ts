@@ -19,8 +19,8 @@ describe("actionIntent", () => {
 
   it("says what an answer does where it goes: into the message, sent at once, or back out", () => {
     expect(actionIntent([send("Use Redis")], { send: "stage", shown: "Use Redis" })).toEqual({ glyph: "Sent", hint: "Add to your message" });
-    expect(actionIntent([send("Use Redis")], { send: "send", shown: "Use Redis" })).toEqual({ glyph: "Sent", hint: "Send as your reply" });
-    expect(actionIntent([send("Open a PR for this branch")], { send: "send" }).hint).toBe("Send “Open a PR for this branch”");
+    expect(actionIntent([send("Use Redis")], { send: "send", shown: "Use Redis" })).toEqual({ glyph: "Sent", hint: "Open this thread's message box to answer" });
+    expect(actionIntent([send("Open a PR for this branch")], { send: "send" }).hint).toBe("Open this thread's message box to add “Open a PR for this branch”");
     // Taking a pick back out runs nothing else.
     expect(actionIntent([copy("PRO-2026"), send("Go with Pro")], { send: "withdraw" })).toEqual({ glyph: "Sent", hint: "Take it out of your message" });
   });
@@ -84,17 +84,18 @@ describe("actionIntent", () => {
 
   it("cuts a long text at a word, and keeps the lines of a multi-line one", () => {
     const hint = actionIntent([send(`Update these dependencies: ${"vitest 4.0.1 → 4.1.0, ".repeat(20)}then run the tests.`)], { send: "send" }).hint!;
-    expect(hint.length).toBeLessThan(220);
-    expect(hint).toMatch(/^Send “Update these dependencies: vitest 4\.0\.1 → 4\.1\.0, .*\S…”$/);
+    // Fork (reviewed): the no-composer hint's lead-in is longer than upstream's "Send ".
+    expect(hint.length).toBeLessThan(220 + "Open this thread's message box to add ".length - "Send ".length);
+    expect(hint).toMatch(/^Open this thread's message box to add “Update these dependencies: vitest 4\.0\.1 → 4\.1\.0, .*\S…”$/);
     expect(hint).not.toMatch(/ …”$/);
     expect(actionIntent([send("  Which channels?: Email\nAnything else?: no  ")], { send: "send" }).hint).toBe(
-      "Send “Which channels?: Email\n\u2003\u2003Anything else?: no”",
+      "Open this thread's message box to add “Which channels?: Email\n\u2003\u2003Anything else?: no”",
     );
   });
 
   it("indents a quoted text's later lines, so none reads as another action's", () => {
     const hint = actionIntent([send("Yes”\nOpen https://github.com/ComicBit"), copy("a\nb")], { send: "send" }).hint!;
-    expect(hint.split("\n")).toEqual(["Send “Yes”", "\u2003\u2003Open https://github.com/ComicBit”", "Copy “a", "\u2003\u2003b”"]);
+    expect(hint.split("\n")).toEqual(["Open this thread's message box to add “Yes”", "\u2003\u2003Open https://github.com/ComicBit”", "Copy “a", "\u2003\u2003b”"]);
   });
 
   it("keeps a text of 200 characters whole, and cuts at 201", () => {
@@ -105,7 +106,7 @@ describe("actionIntent", () => {
   it("keeps the last word when the cut falls just before a space", () => {
     const words = `${"word ".repeat(39)}last1 more`;
     expect(Array.from(words.slice(0, 200)).length).toBe(200);
-    expect(actionIntent([send(words)], { send: "send" }).hint).toBe(`Send “${"word ".repeat(39)}last1…”`);
+    expect(actionIntent([send(words)], { send: "send" }).hint).toBe(`Open this thread's message box to add “${"word ".repeat(39)}last1…”`);
   });
 
   it("never cuts a character in half, as the reader sees characters", () => {

@@ -60,7 +60,8 @@ export function actionIntent(actions: readonly Action[], { send = "none", shown 
       case "send":
         if (!answers) return [];
         if (send === "stage") return [words(action.text) === visible ? "Add to your message" : `Add “${clip(action.text)}” to your message`];
-        return [words(action.text) === visible ? "Send as your reply" : `Send “${clip(action.text)}”`];
+        // Fork (reviewed): "send" (no composer on screen) sends nothing; see useBlockAnswerTarget.
+        return [words(action.text) === visible ? "Open this thread's message box to answer" : `Open this thread's message box to add “${clip(action.text)}”`];
       case "openUrl": {
         const url = openableLink(action.url);
         if (url === null) return [`Can't open ${clip(action.url)}: only http and https links open`];

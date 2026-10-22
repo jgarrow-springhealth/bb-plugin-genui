@@ -422,7 +422,8 @@ describe("the composer is the answer sheet", () => {
     expect(fake.composer.draft.text).toBe("Project name: Orbit\nWhich formats? CSV (not: JSON, XLSX)");
   });
 
-  it("sends a pick at once only where the thread has no composer", async () => {
+  // Fork (reviewed): upstream sends the pick at once here.
+  it("sends nothing where the thread has no composer", async () => {
     cleanup();
     bb.composers = null;
     thread++;
@@ -430,7 +431,7 @@ describe("the composer is the answer sheet", () => {
     await act(async () => {
       fireEvent.click(within(block1).getByRole("button", { name: "Pro" }));
     });
-    expect(bb.send).toHaveBeenCalledWith({ threadId: `thr_${thread}`, mode: "queue-if-active", input: [{ type: "text", text: "Pro", mentions: [] }] });
+    expect(bb.send).not.toHaveBeenCalled();
     // The Form keeps a fixed Send button there.
     expect(within(block2).getByRole("button", { name: "Send" })).toBeTruthy();
   });

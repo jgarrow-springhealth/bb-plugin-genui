@@ -269,6 +269,9 @@ export function LiveUi({
   );
 }
 
+/** Fork (reviewed): why a pick did nothing where the thread has no composer on screen. */
+export const NO_COMPOSER = "Open this thread's message box to answer: nothing is sent without your review";
+
 /**
  * A block's questions on its thread's answer sheet (ui/answerSheet.ts),
  * for ```ui blocks and apps alike: a pick is staged into the composer's
@@ -296,13 +299,9 @@ export function useBlockAnswerTarget(
         return;
       }
       if (mode === "direct" && target.kind === "thread") {
-        // No composer for the thread: the pick is the user's message, as before answers were staged.
-        try {
-          await target.send(answer.text);
-          sheet.markSent(stateKey, question, answer.text);
-        } catch (cause) {
-          toast.error(cause instanceof Error ? cause.message : String(cause));
-        }
+        // Fork (reviewed): no composer for the thread, so nothing is sent. Upstream
+        // posts the pick at once here, unseen; a pick only ever goes to a draft.
+        toast.error(NO_COMPOSER);
         return;
       }
       sheet.stage({

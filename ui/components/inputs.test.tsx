@@ -112,13 +112,14 @@ describe("Button", () => {
     expect(hintOnFocus(button)).toBe("Take it out of your message");
   });
 
-  it("says a pick is sent at once where the thread has no composer, and sends it", async () => {
+  // Fork (reviewed): upstream says "Send as your reply" and sends at once here.
+  it("says a pick needs the message box where the thread has no composer, and sends nothing", async () => {
     const posted = vi.fn(async (_text: string) => {});
     const target: AnswerTarget = { kind: "thread", threadId: `direct:${blocks}`, messageId: "reply", fence: 0, reply: null, send: posted };
     const button = renderButton({ label: "Use Redis" }, target);
-    expect(hintOnFocus(button)).toBe("Send as your reply");
+    expect(hintOnFocus(button)).toBe("Open this thread's message box to answer");
     await act(async () => button.click());
-    expect(posted).toHaveBeenCalledWith("Use Redis");
+    expect(posted).not.toHaveBeenCalled();
   });
 
   it("quotes a label the button's width cuts off", () => {

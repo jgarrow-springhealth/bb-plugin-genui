@@ -227,13 +227,13 @@ describe("an app on screen", () => {
     expect(container.textContent).not.toContain("Would go in your message");
   });
 
-  it("sends the answer at once in a thread with no composer, then shows it sent", async () => {
+  // Fork (reviewed): upstream sends the answer at once here.
+  it("sends nothing in a thread with no composer", async () => {
     const send = vi.fn(async () => undefined);
     const post = mount({ kind: "thread", threadId: `thr_${Math.random()}`, messageId: "m", fence: 0, reply: 0, send });
     post({ type: "answer", text: "Plan B" });
     await act(async () => undefined);
-    expect(send).toHaveBeenCalledWith("Plan B");
-    expect(container.textContent).toContain("Plan B");
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("notes a dialog it can't show, and opens https links in BB", () => {
