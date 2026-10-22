@@ -84,8 +84,8 @@ describe("actionPreview", () => {
   });
 
   it("says whether the click drafts or sends", () => {
-    expect(actionPreview("Go", [send("Go")], true)?.text).toMatch(/^Adds to your message box/);
-    expect(actionPreview("Go", [send("Go")], false)?.text).toMatch(/^Sends this as your message right away/);
+    expect(actionPreview("Go", [send("Go")], true)?.text).toMatch(/^Adds to your message box \(not sent yet\):\n/);
+    expect(actionPreview("Go", [send("Go")], false)?.text).toMatch(/^Sends right away as your message:\n/);
   });
 
   it("shows the link a button opens and the text it copies", () => {
@@ -98,7 +98,7 @@ describe("actionPreview", () => {
 
   it("lists every action, in order", () => {
     const preview = actionPreview("Both", [{ kind: "action", type: "copy", text: "x" }, send("Done")], true);
-    expect(preview?.text).toBe("Copies \u201cx\u201d\nAdds to your message box (you press Enter to send):\n\u201cDone\u201d");
+    expect(preview?.text).toBe("Copies \u201cx\u201d\nAdds to your message box (not sent yet):\n\u201cDone\u201d");
     expect(preview?.differs).toBe(true);
   });
 });
