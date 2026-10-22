@@ -20,6 +20,8 @@ import { CardDepthContext, useUiRuntime } from "../runtime";
 import { isBinding, list, nodes, optionalText, type Props } from "../values";
 import { cardOptions, followUpPrompts, sameColor, swatchColors, togglePick, type CardOption } from "./choose-logic";
 import { CheckMark, ErrorLine } from "./display";
+import { actionPreview } from "./action-preview";
+import { ActionTooltip } from "./ActionTooltip";
 import { CAPTION, SentLine, useClosedChoices } from "./inputs";
 import { useImageUrl } from "./media";
 import { RISE, useEntrance } from "./motion";
@@ -404,21 +406,25 @@ export function FollowUps({ props }: { props: Props }) {
 
 function FollowUpRow({ prompt, disabled, onSend }: { prompt: string; disabled: boolean; onSend: () => void }) {
   const rise = useEntrance<HTMLLIElement>(RISE);
+  const { reviewBeforeSend } = useUiRuntime();
+  const preview = actionPreview(prompt, [{ kind: "action", type: "send", text: prompt }], reviewBeforeSend);
   return (
     <li ref={rise} className="min-w-0 border-t border-border/70">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onSend}
-        className="group/follow flex min-h-10 w-full min-w-0 cursor-pointer touch-manipulation items-center gap-3 rounded-sm py-2 text-left text-sm leading-5 text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default motion-reduce:transition-none"
-      >
-        <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{prompt}</span>
-        <Icon
-          name="ArrowRight"
-          aria-hidden
-          className="size-3.5 shrink-0 transition-transform duration-150 group-hover/follow:translate-x-0.5 motion-reduce:transition-none"
-        />
-      </button>
+      <ActionTooltip text={preview?.text ?? null}>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onSend}
+          className="group/follow flex min-h-10 w-full min-w-0 cursor-pointer touch-manipulation items-center gap-3 rounded-sm py-2 text-left text-sm leading-5 text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default motion-reduce:transition-none"
+        >
+          <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{prompt}</span>
+          <Icon
+            name="ArrowRight"
+            aria-hidden
+            className="size-3.5 shrink-0 transition-transform duration-150 group-hover/follow:translate-x-0.5 motion-reduce:transition-none"
+          />
+        </button>
+      </ActionTooltip>
     </li>
   );
 }

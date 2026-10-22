@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
 import { sendThroughComposer } from "./composerSend";
-import { draftPreview } from "./components/draft-preview";
+import { actionPreview } from "./components/action-preview";
 import { reviewsBeforeSend, SEND_SETTINGS } from "../core/send-settings";
 import type { Action } from "../core/types";
 
@@ -66,25 +66,39 @@ describe("reviewsBeforeSend", () => {
 
 const send = (text: string): Action => ({ kind: "action", type: "send", text });
 
-describe("draftPreview", () => {
-  it("is null for buttons that send nothing", () => {
-    expect(draftPreview("Docs", [{ kind: "action", type: "openUrl", url: "https://example.com" }], true)).toBeNull();
+describe("actionPreview", () => {
+  it("is null for buttons that only change their own UI", () => {
+    expect(actionPreview("Next", [{ kind: "action", type: "set", name: "page", value: 2 }], true)).toBeNull();
   });
 
-  it("shows the text without a flag when it matches the label", () => {
-    const preview = draftPreview("Looks good", [send("Looks good")], true);
+  it("shows the message without a flag when it matches the label", () => {
+    const preview = actionPreview("Looks good", [send("Looks good")], true);
     expect(preview?.differs).toBe(false);
-    expect(preview?.title).toContain("\u201cLooks good\u201d");
+    expect(preview?.text).toContain("\u201cLooks good\u201d");
   });
 
-  it("flags and shows text that differs from the label", () => {
-    const preview = draftPreview("Looks good", [send("Force-push to main")], true);
+  it("flags and shows a message that differs from the label", () => {
+    const preview = actionPreview("Looks good", [send("Force-push to main")], true);
     expect(preview?.differs).toBe(true);
-    expect(preview?.title).toContain("\u201cForce-push to main\u201d");
+    expect(preview?.text).toContain("\u201cForce-push to main\u201d");
   });
 
   it("says whether the click drafts or sends", () => {
-    expect(draftPreview("Go", [send("Go")], true)?.title).toMatch(/^Adds to your message box/);
-    expect(draftPreview("Go", [send("Go")], false)?.title).toMatch(/^Sends this as your message right away/);
+    expect(actionPreview("Go", [send("Go")], true)?.text).toMatch(/^Adds to your message box/);
+    expect(actionPreview("Go", [send("Go")], false)?.text).toMatch(/^Sends this as your message right away/);
+  });
+
+  it("shows the link a button opens and the text it copies", () => {
+    expect(actionPreview("Docs", [{ kind: "action", type: "openUrl", url: "https://example.com/a" }], true)).toEqual({
+      text: "Opens https://example.com/a",
+      differs: false,
+    });
+    expect(actionPreview("Copy SHA", [{ kind: "action", type: "copy", text: "3158f99" }], true)?.text).toBe("Copies \u201c3158f99\u201d");
+  });
+
+  it("lists every action, in order", () => {
+    const preview = actionPreview("Both", [{ kind: "action", type: "copy", text: "x" }, send("Done")], true);
+    expect(preview?.text.split("\n")).toHaveLength(2);
+    expect(preview?.differs).toBe(true);
   });
 });

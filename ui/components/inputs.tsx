@@ -4,7 +4,8 @@ import { Button as BaseButton } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import { resolveIconName } from "../icons";
-import { draftPreview } from "./draft-preview";
+import { actionPreview } from "./action-preview";
+import { ActionTooltip } from "./ActionTooltip";
 import { CardDepthContext, useUiRuntime } from "../runtime";
 import {
   finiteNumber,
@@ -341,9 +342,10 @@ function ButtonView({ props }: { props: Props }) {
       : list(props.action).filter(isAction);
   const filled = props.variant === "primary" && !nested;
   const destructive = props.variant === "destructive";
-  // The message this button drafts or sends, shown on hover, and flagged on
-  // the button when it isn't just the label, so a label can't hide what it says.
-  const drafted = draftPreview(label, actions, reviewBeforeSend);
+  // What a click will do (the message it drafts or sends, the link, the copied
+  // text), shown in a tooltip; a message that isn't the label is also marked
+  // on the button, so a label can't hide what it says.
+  const preview = actionPreview(label, actions, reviewBeforeSend);
   // An unknown name draws nothing; links and copies get their glyph by default.
   const icon =
     props.icon !== undefined
@@ -360,7 +362,7 @@ function ButtonView({ props }: { props: Props }) {
       variant={filled ? "default" : "outline"}
       disabled={running || actions.length === 0}
       aria-busy={running || undefined}
-      aria-description={drafted?.title}
+      aria-description={preview?.text}
       onClick={async () => {
         setRunning(true);
         try {
@@ -378,19 +380,12 @@ function ButtonView({ props }: { props: Props }) {
     >
       {icon === null ? null : <Icon name={icon} aria-hidden className="size-3.5 shrink-0" />}
       <span className="truncate">{label}</span>
-      {drafted?.differs ? (
+      {preview?.differs ? (
         <Icon name="MessageSquare" aria-hidden className="size-3 shrink-0 opacity-60" />
       ) : null}
     </BaseButton>
   );
-  // BB's Button takes no title, so the hover text sits on a wrapper.
-  return drafted === null ? (
-    button
-  ) : (
-    <span title={drafted.title} className="inline-flex w-fit max-w-full">
-      {button}
-    </span>
-  );
+  return <ActionTooltip text={preview?.text ?? null}>{button}</ActionTooltip>;
 }
 
 
