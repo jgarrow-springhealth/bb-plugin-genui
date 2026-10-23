@@ -15,7 +15,9 @@
 //   Changes, Commits, PullRequest and Threads, and keeps what Changes and
 //   Commits first showed per reply block; and its project's environments
 //   (project/environments.ts) for Environments,
-// - declares the `animations` setting, which only the page reads.
+// - declares the `animations` setting, which only the page reads, and the
+//   `automationThreads` setting, which lets scheduled automation runs (whose
+//   final reply a person reads in BB) get the UI instructions too.
 import { cliCommand, defineCli, defineRpcContract, PluginCliError, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import {
@@ -69,6 +71,20 @@ export const MOTION_SETTINGS = {
     description:
       "Lets inline UI move: text fades in, rows and cards rise into place, charts draw, sections glide open, maps and carousels scroll smoothly, and 3D scenes and shaders play. Off, nothing moves: everything appears at once, transitions are instant, and 3D scenes and shaders hold a still frame. The system's reduced-motion setting is honoured either way. Sandboxed apps keep their own motion.",
     default: true,
+  },
+} as const;
+
+/**
+ * Threads the automations plugin starts are runs a person reads later in BB,
+ * but they are plugin threads, so they get no UI instructions unless this is on.
+ */
+export const AUTOMATION_SETTINGS = {
+  automationThreads: {
+    type: "boolean",
+    label: "Automation threads",
+    description:
+      "Also gives the inline UI instructions to agent threads that scheduled automations start, so a run's final reply in BB can use components. Each such run then costs the same ~6,400 tokens of instructions a chat does. Off, automation threads answer in plain markdown. Takes effect for runs that start after the change.",
+    default: false,
   },
 } as const;
 
@@ -224,6 +240,15 @@ export const rpcContract = defineRpcContract({
 export default async function plugin(bb: BbPluginApi) {
   const web = createWebLookups(bb);
   bb.settings.define(MOTION_SETTINGS);
+  // configure can't wait, so it reads the setting as last seen.
+  const automationSettings = bb.settings.define(AUTOMATION_SETTINGS);
+  let automationThreads: boolean = AUTOMATION_SETTINGS.automationThreads.default;
+  void automationSettings.get().then((current) => {
+    automationThreads = current.automationThreads;
+  });
+  automationSettings.onChange((next) => {
+    automationThreads = next.automationThreads;
+  });
   /** Image searches and Wikipedia photos (Map places) for markdown renderings: the photo found, or null (none, or lookups off). */
   const findImage = {
     search: async (query: string) => {
@@ -287,11 +312,14 @@ export default async function plugin(bb: BbPluginApi) {
     // Only sessions whose replies a person reads in chat: not threads another
     // agent spawned (their reply goes back to that agent) and not threads a
     // plugin runs (workflows, automations), except the user's side chats and
-    // the subthreads `bb genui ask` opens to try a prompt.
+    // the subthreads `bb genui ask` opens to try a prompt, and, with the
+    // automationThreads setting on, top-level automation runs.
     const forPerson =
       context.pluginMetadata.audience === "person" ||
       (context.thread.parentThreadId === null &&
-        (context.origin.pluginId === null || context.origin.pluginId === "side-chat"));
+        (context.origin.pluginId === null ||
+          context.origin.pluginId === "side-chat" ||
+          (automationThreads && context.origin.pluginId === "automations")));
     personThreads.delete(context.thread.id);
     if (!forPerson) return { tools: [], skills: [] };
     personThreads.add(context.thread.id);
