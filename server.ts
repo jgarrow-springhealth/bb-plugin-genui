@@ -237,6 +237,9 @@ export const rpcContract = defineRpcContract({
   },
 });
 
+/** Plugins whose threads are chats a person starts and reads, not background runs. */
+const PERSON_CHAT_PLUGINS: ReadonlySet<string> = new Set(["side-chat", "project-folders"]);
+
 export default async function plugin(bb: BbPluginApi) {
   const web = createWebLookups(bb);
   bb.settings.define(MOTION_SETTINGS);
@@ -311,14 +314,15 @@ export default async function plugin(bb: BbPluginApi) {
   bb.agents.configure((context) => {
     // Only sessions whose replies a person reads in chat: not threads another
     // agent spawned (their reply goes back to that agent) and not threads a
-    // plugin runs (workflows, automations), except the user's side chats and
-    // the subthreads `bb genui ask` opens to try a prompt, and, with the
-    // automationThreads setting on, top-level automation runs.
+    // plugin runs (workflows, automations), except chats a person starts
+    // through a plugin (side chats, Project Folders' chats), the subthreads
+    // `bb genui ask` opens to try a prompt, and, with the automationThreads
+    // setting on, top-level automation runs.
     const forPerson =
       context.pluginMetadata.audience === "person" ||
       (context.thread.parentThreadId === null &&
         (context.origin.pluginId === null ||
-          context.origin.pluginId === "side-chat" ||
+          PERSON_CHAT_PLUGINS.has(context.origin.pluginId) ||
           (automationThreads && context.origin.pluginId === "automations")));
     personThreads.delete(context.thread.id);
     if (!forPerson) return { tools: [], skills: [] };

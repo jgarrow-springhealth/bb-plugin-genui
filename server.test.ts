@@ -24,6 +24,17 @@ describe("which sessions get the UI instructions", () => {
     expect(config.instructions).toContain("# Inline UI");
   });
 
+  it("gives them to chats a person starts through Project Folders or Side Chat", async () => {
+    const host = createFakePluginHost({ pluginId: "genui" });
+    await plugin(host.bb);
+    for (const pluginId of ["project-folders", "side-chat"]) {
+      const chat = makePluginAgentConfigurationContext({ origin: { kind: null, pluginId } });
+      const config = await host.harness.resolveAgentConfiguration(chat);
+      expect(config.instructions).toContain("# Inline UI");
+      expect(config.tools.map((tool) => tool.name).sort()).toEqual(["check_ui", "ui_examples"]);
+    }
+  });
+
   it("leaves automation runs out by default", async () => {
     const host = createFakePluginHost({ pluginId: "genui" });
     await plugin(host.bb);
